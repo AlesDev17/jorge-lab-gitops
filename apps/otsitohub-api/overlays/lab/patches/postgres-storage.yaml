@@ -1,0 +1,11 @@
+# 10Gi is sized for the shared cluster; a two-worker lab does not need it.
+- op: replace
+  path: /spec/volumeClaimTemplates/0/spec/resources/requests/storage
+  value: 5Gi
+
+# The base deliberately omits storageClassName so the cluster default applies
+# (local-path on k3s). If `kubectl get sc` shows no (default) class in the lab,
+# uncomment this and name the class explicitly:
+# - op: add
+#   path: /spec/volumeClaimTemplates/0/spec/storageClassName
+#   value: local-path

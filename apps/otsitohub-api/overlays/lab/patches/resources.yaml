@@ -1,0 +1,18 @@
+# Lab sizing: requests low enough that api + postgres + redis all schedule on a
+# two-worker cluster, limits still high enough to serve real traffic.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: otsitohub-api
+spec:
+  template:
+    spec:
+      containers:
+        - name: api
+          resources:
+            limits:
+              cpu: 500m
+              memory: 512Mi
+            requests:
+              cpu: 25m
+              memory: 128Mi

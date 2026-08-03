@@ -1,0 +1,42 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - ../../base
+
+namespace: otsitohub
+
+labels:
+  - includeSelectors: false
+    pairs:
+      app.kubernetes.io/instance: lab
+      environment: lab
+
+configMapGenerator:
+  - name: otsitohub-api-config
+    behavior: merge
+    literals:
+      # ENVIRONMENT != development on purpose: it arms the fail-fast guard in
+      # config.py, so the lab refuses to boot with the default JWT secret.
+      - ENVIRONMENT=lab
+      - CORS_ORIGINS=http://localhost:5173
+
+images:
+  - name: otsitohub-api
+    newName: ghcr.io/alesdev17/otsitohub-api
+    newTag: lab
+
+patches:
+  - path: patches/service-nodeport.yaml
+    target:
+      kind: Service
+      name: otsitohub-api
+  - path: patches/resources.yaml
+    target:
+      kind: Deployment
+      name: otsitohub-api
+  # JSON6902 patch: target is mandatory, it cannot be inferred from the file.
+  - path: patches/postgres-storage.yaml
+    target:
+      kind: StatefulSet
+      name: postgres

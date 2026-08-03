@@ -1,0 +1,15 @@
+# NodePort instead of Ingress: it works on any distribution regardless of which
+# ingress controller the lab runs, so the API is reachable at
+# http://<node-ip>:30080 as soon as the pod is ready.
+apiVersion: v1
+kind: Service
+metadata:
+  name: otsitohub-api
+spec:
+  type: NodePort
+  ports:
+    - port: 80
+      targetPort: 8080
+      nodePort: 30080
+      protocol: TCP
+      name: http

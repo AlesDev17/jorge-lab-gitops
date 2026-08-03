@@ -1,0 +1,109 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: otsitohub-api
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: otsitohub-api
+      app.kubernetes.io/name: otsitohub-api
+  template:
+    metadata:
+      labels:
+        app: otsitohub-api
+        app.kubernetes.io/name: otsitohub-api
+    spec:
+      # No imagePullSecrets: the lab pulls from a public GHCR repository.
+      containers:
+        - name: api
+          image: otsitohub-api:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8080
+              name: http
+              protocol: TCP
+          env:
+            # DATABASE_URL/REDIS_URL are constructed here so the DB password is
+            # only ever stored in the postgres-credentials secret (never duplicated).
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-credentials
+                  key: POSTGRES_PASSWORD
+            - name: DATABASE_URL
+              value: postgresql+asyncpg://otsitohub:$(POSTGRES_PASSWORD)@postgres:5432/otsitohub
+            - name: REDIS_URL
+              value: redis://redis:6379/0
+          envFrom:
+            - configMapRef:
+                name: otsitohub-api-config
+            - secretRef:
+                name: otsitohub-api-secrets
+                optional: false
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+              scheme: HTTP
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+              scheme: HTTP
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 3
+          resources:
+            limits:
+              cpu: 500m
+              memory: 512Mi
+            requests:
+              cpu: 50m
+              memory: 128Mi
+      initContainers:
+        - name: wait-for-db
+          image: postgres:16-alpine
+          imagePullPolicy: IfNotPresent
+          command:
+            - sh
+            - -c
+            - |
+              until pg_isready -h postgres -U otsitohub -d otsitohub; do
+                echo "Waiting for database to be ready..."
+                sleep 2
+              done
+              echo "Database is ready!"
+          env:
+            - name: PGPASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-credentials
+                  key: POSTGRES_PASSWORD
+        - name: run-migrations
+          image: otsitohub-api:latest
+          imagePullPolicy: Always
+          command: ["alembic", "upgrade", "head"]
+          env:
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-credentials
+                  key: POSTGRES_PASSWORD
+            - name: DATABASE_URL
+              value: postgresql+asyncpg://otsitohub:$(POSTGRES_PASSWORD)@postgres:5432/otsitohub
+            - name: REDIS_URL
+              value: redis://redis:6379/0
+          envFrom:
+            - configMapRef:
+                name: otsitohub-api-config
+            - secretRef:
+                name: otsitohub-api-secrets
+                optional: false

@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: otsitohub
+  labels:
+    app.kubernetes.io/name: otsitohub
+    app.kubernetes.io/managed-by: argocd
